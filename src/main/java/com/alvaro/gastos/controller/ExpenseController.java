@@ -2,6 +2,7 @@ package com.alvaro.gastos.controller;
 
 import com.alvaro.gastos.dto.ApiResponse;
 import com.alvaro.gastos.dto.ExpenseDTO;
+import com.alvaro.gastos.dto.UserDTO;
 import com.alvaro.gastos.entities.Expense;
 import com.alvaro.gastos.service.ExpenseService;
 import jakarta.validation.Valid;
@@ -41,22 +42,46 @@ public class ExpenseController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<ExpenseDTO>> createExpense(@Valid @RequestBody ExpenseDTO expenseDTO){
+    public ResponseEntity<ApiResponse<ExpenseDTO>> createExpense(
+            @RequestPart("expense") ExpenseDTO expenseDTO,
+            @RequestPart(value = "file", required = false) MultipartFile file)
+    {
         logger.info("Solicitud para crear gasto para User ID: {}", expenseDTO.getUserId());
 
-        ApiResponse<ExpenseDTO> response = expenseService.createExpense(expenseDTO);
+        try {
+            if (file != null && !file.isEmpty()) {
+                String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                Path uploadDir = Paths.get("D:/Proyectos/Gastos/uploads");
 
-        if ("success".equals(response.getStatus())){
-            return new ResponseEntity<>(response, HttpStatus.CREATED); //201
-        } else {
-            // Diferenciar el tipo de error para devolver el HttpStatus correcto
-            if (response.getMessage().contains("no encontrado")){
-                return new ResponseEntity<>(response, HttpStatus.NOT_FOUND); //404
-            }else if (response.getMessage().contains("Error interno")){
-                return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR); //500
+                if (!Files.exists(uploadDir)) {
+                    Files.createDirectories(uploadDir);
+                }
+
+                Path destination = uploadDir.resolve(fileName);
+                Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+                // Guardar la URL accesible en el DTO
+                expenseDTO.setImageUrl("/uploads/" + fileName);
             }
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); //400
+
+                ApiResponse<ExpenseDTO> response = expenseService.createExpense(expenseDTO);
+
+                if ("success".equals(response.getStatus())){
+                    return new ResponseEntity<>(response, HttpStatus.CREATED); //201
+                } else {
+                    // Diferenciar el tipo de error para devolver el HttpStatus correcto
+                    if (response.getMessage().contains("no encontrado")){
+                        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND); //404
+                    }else if (response.getMessage().contains("Error interno")){
+                        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR); //500
+                    }
+                    return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); //400
+                }
+
+        } catch (IOException e){
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR); //500
         }
+
     }
 
     @GetMapping("/{id}")
@@ -158,7 +183,7 @@ public class ExpenseController {
         try {
             //String uploadDir = "uploads/expenses/";
             String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path uploadPath = Paths.get("file:D:/Proyectos/Gastos/uploads/");
+            Path uploadPath = Paths.get("D:/Proyectos/Gastos/uploads/");
 
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
@@ -174,4 +199,5 @@ public class ExpenseController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al guardar imagen");
         }
     }
+
 }

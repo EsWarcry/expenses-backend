@@ -144,6 +144,7 @@ public class ExpenseServiceImpl implements ExpenseService{
         return new ApiResponse<>("Gastos recuperados exitosamente.", expenseDTOS);
     }
 
+
     @Transactional
     @Override
     public ApiResponse<ExpenseDTO> updateExpense(Long id, ExpenseDTO expenseDTO) {
