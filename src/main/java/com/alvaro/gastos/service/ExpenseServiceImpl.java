@@ -11,7 +11,6 @@ import com.alvaro.gastos.repository.UserRepository;
 import com.alvaro.gastos.response.ExpenseResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.aop.interceptor.ExposeBeanNameAdvisors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,7 +102,7 @@ public class ExpenseServiceImpl implements ExpenseService{
     }
 
     @Transactional(readOnly = true)
-    public ApiResponse<List<ExpenseDTO>> getExpensesByKeycloakId(String keycloakId) {
+    public ApiResponse<ExpenseResponse> getExpensesByKeycloakId(String keycloakId) {
 
         Optional<User> userOpt = userRepository.findByKeycloakId(keycloakId);
 
@@ -127,8 +126,32 @@ public class ExpenseServiceImpl implements ExpenseService{
         ExpenseResponse responseDTO = new ExpenseResponse(expenseDTOS, total);
 
         logger.info("Recuperados {} gastos para el usuario ID {}", expenseDTOS.size(), keycloakId);
-        return new ApiResponse<>("success","Gastos recuperados exitosamente para el usuario con ID: " + keycloakId, expenseDTOS);
+        return new ApiResponse<>("success","Gastos recuperados exitosamente para el usuario con ID: " + keycloakId, responseDTO);
 
+    }
+
+    @Override
+    public ApiResponse<ExpenseResponse> getExpensesByUserAndMonth(String keycloakId, int month) {
+
+        Optional<User> userOptional = userRepository.findByKeycloakId(keycloakId);
+        if (userOptional.isEmpty()){
+            return new ApiResponse<>("error", "Usuario no encontrado", null);
+        }
+
+        User userFind = userOptional.get();
+
+        List<Expense> expenseList = expenseRepository.findByUserAndMonth(keycloakId, month);
+
+        List<ExpenseDTO> expenseDTOS = expenseList.stream()
+                                        .map(this::convertToDto)
+                .collect(Collectors.toList());
+
+        Double total = expenseDTOS.stream()
+                .mapToDouble(ExpenseDTO::getAmount)
+                .sum();
+
+        ExpenseResponse expenseResponse = new ExpenseResponse(expenseDTOS, total);
+        return new ApiResponse<ExpenseResponse>("success", "Lista encontrada con exito", expenseResponse);
     }
 
     @Transactional(readOnly = true)

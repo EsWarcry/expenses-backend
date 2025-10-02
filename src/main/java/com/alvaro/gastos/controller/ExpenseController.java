@@ -4,6 +4,7 @@ import com.alvaro.gastos.dto.ApiResponse;
 import com.alvaro.gastos.dto.ExpenseDTO;
 import com.alvaro.gastos.dto.UserDTO;
 import com.alvaro.gastos.entities.Expense;
+import com.alvaro.gastos.response.ExpenseResponse;
 import com.alvaro.gastos.service.ExpenseService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -111,10 +112,10 @@ public class ExpenseController {
     }
 
     @GetMapping("/user/keycloak/{keycloakId}")
-    public ResponseEntity<ApiResponse<List<ExpenseDTO>>> getExpensesByKeycloakId(@PathVariable String keycloakId){
+    public ResponseEntity<ApiResponse<ExpenseResponse>> getExpensesByKeycloakId(@PathVariable String keycloakId){
         logger.info("Solicitud para obtener gasto por usuario ID {}", keycloakId);
 
-        ApiResponse<List<ExpenseDTO>> response = expenseService.getExpensesByKeycloakId(keycloakId);
+        ApiResponse<ExpenseResponse> response = expenseService.getExpensesByKeycloakId(keycloakId);
 
         if ("success".equals(response.getStatus())){
             return new ResponseEntity<>(response, HttpStatus.OK);
@@ -122,6 +123,19 @@ public class ExpenseController {
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
         }
 
+    }
+
+    @GetMapping("/user/keycloak/{keycloakId}/month/{month}")
+    public ResponseEntity<ApiResponse<ExpenseResponse>> getExpesesByUserAndMonth(@PathVariable String keycloakId, @PathVariable int month){
+        logger.info("Solicitud para obtener lista de gastos por usuario {}", keycloakId);
+
+        ApiResponse<ExpenseResponse> response = expenseService.getExpensesByUserAndMonth(keycloakId, month);
+
+        if ("success".equals(response.getStatus())){
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        }
     }
 
     /**
