@@ -2,22 +2,19 @@ package com.alvaro.gastos.controller;
 
 import com.alvaro.gastos.dto.ApiResponse;
 import com.alvaro.gastos.dto.ExpenseDTO;
-import com.alvaro.gastos.dto.UserDTO;
-import com.alvaro.gastos.entities.Expense;
 import com.alvaro.gastos.response.ExpenseResponse;
 import com.alvaro.gastos.service.ExpenseService;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.graphql.GraphQlProperties;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.swing.text.html.parser.Entity;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -173,7 +170,7 @@ public class ExpenseController {
         }
     }
 
-    @DeleteMapping("/{id}") // Mapea las solicitudes DELETE a /api/v1/expenses/{id}
+    @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteExpense(@PathVariable Long id) {
         logger.info("Solicitud para eliminar gasto con ID: {}", id);
         ApiResponse<Void> response = expenseService.deleteExpense(id);
@@ -212,6 +209,16 @@ public class ExpenseController {
         } catch (IOException e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al guardar imagen");
         }
+    }
+
+    @GetMapping("/export/excel/keycloak/{keycloakId}/month/{month}")
+    public ResponseEntity<byte[]> exportExpesesToExcel(@PathVariable String keycloakId,@PathVariable int month){
+
+        byte[] excelFile = expenseService.exportExpensesToExcel(keycloakId, month);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=gasto_mes_"+ month + ".xlsx")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.seheet"))
+                .body(excelFile);
     }
 
 }

@@ -23,4 +23,6 @@ public interface ExpenseService {
     ApiResponse<ExpenseResponse> getExpensesByKeycloakId(String keycloakId);
     ApiResponse<ExpenseResponse> getExpensesByUserAndMonth(String keycloakId, int month);
 
+    byte[] exportExpensesToExcel(String keycloakId, int month);
+
 }

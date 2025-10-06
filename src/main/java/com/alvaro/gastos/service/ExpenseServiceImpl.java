@@ -9,11 +9,17 @@ import com.alvaro.gastos.repository.ExpenseRepository;
 import com.alvaro.gastos.repository.ExpenseTypeRepository;
 import com.alvaro.gastos.repository.UserRepository;
 import com.alvaro.gastos.response.ExpenseResponse;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -144,14 +150,14 @@ public class ExpenseServiceImpl implements ExpenseService{
 
         List<ExpenseDTO> expenseDTOS = expenseList.stream()
                                         .map(this::convertToDto)
-                .collect(Collectors.toList());
+                                        .collect(Collectors.toList());
 
-        Double total = expenseDTOS.stream()
-                .mapToDouble(ExpenseDTO::getAmount)
+        Double total = expenseList.stream()
+                .mapToDouble(Expense::getAmount)
                 .sum();
 
         ExpenseResponse expenseResponse = new ExpenseResponse(expenseDTOS, total);
-        return new ApiResponse<ExpenseResponse>("success", "Lista encontrada con exito", expenseResponse);
+        return new ApiResponse<ExpenseResponse>("success", "Gastos por usuario recuperados exitosamente!!!", expenseResponse);
     }
 
     @Transactional(readOnly = true)
@@ -253,5 +259,81 @@ public class ExpenseServiceImpl implements ExpenseService{
         expenseDTO.setCreatedAt(expense.getCreatedAt());
         expenseDTO.setExpenseTypeName(expense.getExpenseType().getName());
         return expenseDTO;
+    }
+
+    public byte[] exportExpensesToExcel(String keycloakId, int month){
+
+        List<Expense> expenses = expenseRepository.findByUserAndMonth(keycloakId, month);
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Gastos");
+
+            // ========= EStilos =========
+
+            Font boldFont = workbook.createFont();
+            boldFont.setBold(true);
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFont(boldFont);
+
+            CellStyle totalStyle = workbook.createCellStyle();
+            totalStyle.setFont(boldFont);
+
+            //Estiloo para fechas
+
+            CreationHelper createHelper = workbook.getCreationHelper();
+            CellStyle dateStyle = workbook.createCellStyle();
+            dateStyle.setDataFormat(createHelper.createDataFormat().getFormat("dd/MM/yyyy"));
+
+            // Encabezado
+
+            Row header = sheet.createRow(0);
+            String[] columns = {"Tipo de Gasto", "Fecha", "Monto €", "KM", "Descripción"};
+            for (int i=0; i < columns.length; i++){
+                Cell cell = header.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            //===== Filas
+
+            int rowNum = 1;
+            for (Expense exp : expenses){
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(exp.getExpenseType().getName());
+
+                //Damos formato a la fecha
+                Cell dateCell = row.createCell(1);
+                if (exp.getExpenseDate() != null) {
+                    LocalDate date = exp.getExpenseDate();
+                    dateCell.setCellValue(Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+                    dateCell.setCellStyle(dateStyle);
+                }
+
+                row.createCell(2).setCellValue(exp.getAmount());
+                row.createCell(3).setCellValue(exp.getMileage() != null ? exp.getMileage() : 0);
+                row.createCell(4).setCellValue(exp.getDescription() != null ? exp.getDescription() : "");
+            }
+
+            Double total = expenses.stream().mapToDouble(Expense::getAmount).sum();
+
+            Row rowTotal = sheet.createRow(rowNum + 1);
+            rowTotal.createCell(1).setCellValue("Total €:");
+            Cell totalCell = rowTotal.createCell(2);
+            totalCell.setCellValue(total);
+            totalCell.setCellStyle(totalStyle);
+
+            // ==== Ajustar el ancho de las celldas
+
+            for (int i = 0; i< columns.length; i++){
+                sheet.autoSizeColumn(i);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }catch (IOException e){
+            throw new RuntimeException("Error generando Excel de gastos");
+        }
     }
 }
