@@ -144,8 +144,6 @@ public class ExpenseServiceImpl implements ExpenseService{
             return new ApiResponse<>("error", "Usuario no encontrado", null);
         }
 
-        User userFind = userOptional.get();
-
         List<Expense> expenseList = expenseRepository.findByUserAndMonth(keycloakId, month);
 
         List<ExpenseDTO> expenseDTOS = expenseList.stream()
@@ -158,6 +156,28 @@ public class ExpenseServiceImpl implements ExpenseService{
 
         ExpenseResponse expenseResponse = new ExpenseResponse(expenseDTOS, total);
         return new ApiResponse<ExpenseResponse>("success", "Gastos por usuario recuperados exitosamente!!!", expenseResponse);
+    }
+
+    @Override
+    public ApiResponse<ExpenseResponse> getExpensesByUserAndDateRange(String keycloakId, LocalDate startDate, LocalDate endDate) {
+
+        logger.info("Solicitud de lista de gastos entre 2 fechas.");
+
+        Optional<User> user = userRepository.findByKeycloakId(keycloakId);
+
+        if (user.isEmpty()){
+            return new ApiResponse<>("error","Usuario no encontrado", null);
+        }
+
+        List<Expense> expenses = expenseRepository.findByUserAndDateRange(keycloakId, startDate, endDate);
+
+        List<ExpenseDTO> expenseDTOS = expenses.stream().map(this::convertToDto).collect(Collectors.toList());
+
+        Double total = expenses.stream().mapToDouble(Expense::getAmount).sum();
+
+        ExpenseResponse response = new ExpenseResponse(expenseDTOS, total);
+
+        return new ApiResponse<ExpenseResponse>("success", "Gastos por usuario, entre 2 fechas recuperados con exito", response);
     }
 
     @Transactional(readOnly = true)
@@ -261,9 +281,9 @@ public class ExpenseServiceImpl implements ExpenseService{
         return expenseDTO;
     }
 
-    public byte[] exportExpensesToExcel(String keycloakId, int month){
+    public byte[] exportExpensesToExcel(List<ExpenseDTO> expenses){
 
-        List<Expense> expenses = expenseRepository.findByUserAndMonth(keycloakId, month);
+        //List<Expense> expenses = expenseRepository.findByUserAndMonth(keycloakId, month);
 
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Gastos");
@@ -298,9 +318,9 @@ public class ExpenseServiceImpl implements ExpenseService{
             //===== Filas
 
             int rowNum = 1;
-            for (Expense exp : expenses){
+            for (ExpenseDTO exp : expenses){
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue(exp.getExpenseType().getName());
+                row.createCell(0).setCellValue(exp.getExpenseTypeName());
 
                 //Damos formato a la fecha
                 Cell dateCell = row.createCell(1);
@@ -315,7 +335,7 @@ public class ExpenseServiceImpl implements ExpenseService{
                 row.createCell(4).setCellValue(exp.getDescription() != null ? exp.getDescription() : "");
             }
 
-            Double total = expenses.stream().mapToDouble(Expense::getAmount).sum();
+            Double total = expenses.stream().mapToDouble(ExpenseDTO::getAmount).sum();
 
             Row rowTotal = sheet.createRow(rowNum + 1);
             rowTotal.createCell(1).setCellValue("Total €:");

@@ -6,6 +6,7 @@ import com.alvaro.gastos.response.ExpenseResponse;
 import com.alvaro.gastos.service.ExpenseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -20,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,8 +44,7 @@ public class ExpenseController {
     @PostMapping
     public ResponseEntity<ApiResponse<ExpenseDTO>> createExpense(
             @RequestPart("expense") ExpenseDTO expenseDTO,
-            @RequestPart(value = "file", required = false) MultipartFile file)
-    {
+            @RequestPart(value = "file", required = false) MultipartFile file) {
         logger.info("Solicitud para crear gasto para User ID: {}", expenseDTO.getUserId());
 
         try {
@@ -62,32 +63,32 @@ public class ExpenseController {
                 expenseDTO.setImageUrl("/uploads/" + fileName);
             }
 
-                ApiResponse<ExpenseDTO> response = expenseService.createExpense(expenseDTO);
+            ApiResponse<ExpenseDTO> response = expenseService.createExpense(expenseDTO);
 
-                if ("success".equals(response.getStatus())){
-                    return new ResponseEntity<>(response, HttpStatus.CREATED); //201
-                } else {
-                    // Diferenciar el tipo de error para devolver el HttpStatus correcto
-                    if (response.getMessage().contains("no encontrado")){
-                        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND); //404
-                    }else if (response.getMessage().contains("Error interno")){
-                        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR); //500
-                    }
-                    return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); //400
+            if ("success".equals(response.getStatus())) {
+                return new ResponseEntity<>(response, HttpStatus.CREATED); //201
+            } else {
+                // Diferenciar el tipo de error para devolver el HttpStatus correcto
+                if (response.getMessage().contains("no encontrado")) {
+                    return new ResponseEntity<>(response, HttpStatus.NOT_FOUND); //404
+                } else if (response.getMessage().contains("Error interno")) {
+                    return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR); //500
                 }
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); //400
+            }
 
-        } catch (IOException e){
+        } catch (IOException e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR); //500
         }
 
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ExpenseDTO>> getExpenseById(@PathVariable Long id){
+    public ResponseEntity<ApiResponse<ExpenseDTO>> getExpenseById(@PathVariable Long id) {
         logger.info("Solicitud para obtener gasto por ID {}", id);
         ApiResponse<ExpenseDTO> response = expenseService.getExpenseById(id);
 
-        if ("success".equals(response.getStatus())){
+        if ("success".equals(response.getStatus())) {
             return new ResponseEntity<>(response, HttpStatus.OK); // 200 ok
         } else {
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND); // 404 not found
@@ -95,12 +96,12 @@ public class ExpenseController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<ApiResponse<List<ExpenseDTO>>> getExpensesByUserId(@PathVariable Long userId){
+    public ResponseEntity<ApiResponse<List<ExpenseDTO>>> getExpensesByUserId(@PathVariable Long userId) {
         logger.info("Solicitud para obtener gasto por usuario ID {}", userId);
 
         ApiResponse<List<ExpenseDTO>> response = expenseService.getExpensesByUserId(userId);
 
-        if ("success".equals(response.getStatus())){
+        if ("success".equals(response.getStatus())) {
             return new ResponseEntity<>(response, HttpStatus.OK);
         } else {
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
@@ -109,12 +110,12 @@ public class ExpenseController {
     }
 
     @GetMapping("/user/keycloak/{keycloakId}")
-    public ResponseEntity<ApiResponse<ExpenseResponse>> getExpensesByKeycloakId(@PathVariable String keycloakId){
+    public ResponseEntity<ApiResponse<ExpenseResponse>> getExpensesByKeycloakId(@PathVariable String keycloakId) {
         logger.info("Solicitud para obtener gasto por usuario ID {}", keycloakId);
 
         ApiResponse<ExpenseResponse> response = expenseService.getExpensesByKeycloakId(keycloakId);
 
-        if ("success".equals(response.getStatus())){
+        if ("success".equals(response.getStatus())) {
             return new ResponseEntity<>(response, HttpStatus.OK);
         } else {
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
@@ -123,15 +124,29 @@ public class ExpenseController {
     }
 
     @GetMapping("/user/keycloak/{keycloakId}/month/{month}")
-    public ResponseEntity<ApiResponse<ExpenseResponse>> getExpesesByUserAndMonth(@PathVariable String keycloakId, @PathVariable int month){
+    public ResponseEntity<ApiResponse<ExpenseResponse>> getExpesesByUserAndMonth(@PathVariable String keycloakId, @PathVariable int month) {
         logger.info("Solicitud para obtener lista de gastos por usuario {}", keycloakId);
 
         ApiResponse<ExpenseResponse> response = expenseService.getExpensesByUserAndMonth(keycloakId, month);
 
-        if ("success".equals(response.getStatus())){
+        if ("success".equals(response.getStatus())) {
             return new ResponseEntity<>(response, HttpStatus.OK);
         } else {
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @GetMapping("/user/keycloak/{keycloakId}/range")
+    public ResponseEntity<ApiResponse<ExpenseResponse>> getExpensesByUserAndDateRange(@PathVariable String keycloakId,
+                                                                         @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                         @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        logger.info("Solicitud para obtener gastos por rango de fechas. keycloakId={}, startDate={}, endDate={}", keycloakId, startDate, endDate);
+        ApiResponse<ExpenseResponse> response = expenseService.getExpensesByUserAndDateRange(keycloakId, startDate, endDate);
+        if ("success".equals(response.getStatus())) {
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
     }
 
@@ -143,7 +158,7 @@ public class ExpenseController {
      */
     @Transactional(readOnly = true)
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ExpenseDTO>>> getAllExpenses(){
+    public ResponseEntity<ApiResponse<List<ExpenseDTO>>> getAllExpenses() {
 
         logger.info("Solicitud para obtener lista todos los gastos.");
         ApiResponse<List<ExpenseDTO>> response = expenseService.getAllExpenses();
@@ -151,12 +166,12 @@ public class ExpenseController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ExpenseDTO>> updateExpense(@PathVariable Long id, @RequestBody ExpenseDTO expenseDTO){
+    public ResponseEntity<ApiResponse<ExpenseDTO>> updateExpense(@PathVariable Long id, @RequestBody ExpenseDTO expenseDTO) {
         logger.info("Solicitud de actualizar gasto con ID {}", id);
 
         ApiResponse<ExpenseDTO> response = expenseService.updateExpense(id, expenseDTO);
 
-        if ("success".equals(response.getStatus())){
+        if ("success".equals(response.getStatus())) {
             return new ResponseEntity<>(response, HttpStatus.OK);
         } else {
             // El servicio ya devuelve mensajes específicos (no encontrado, usuario/tipo no válido, error interno)
@@ -190,7 +205,7 @@ public class ExpenseController {
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> uploadImage(@RequestParam("file")MultipartFile file){
+    public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile file) {
         try {
             //String uploadDir = "uploads/expenses/";
             String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
@@ -202,21 +217,21 @@ public class ExpenseController {
 
 
             Path filePath = uploadPath.resolve(fileName);
-            Files.copy(file.getInputStream(),uploadPath.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(file.getInputStream(), uploadPath.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
 
             String imageUrl = "/uploads/" + fileName;
             return ResponseEntity.ok(imageUrl);
-        } catch (IOException e){
+        } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al guardar imagen");
         }
     }
 
-    @GetMapping("/export/excel/keycloak/{keycloakId}/month/{month}")
-    public ResponseEntity<byte[]> exportExpesesToExcel(@PathVariable String keycloakId,@PathVariable int month){
+    @PostMapping("/export/excel")
+    public ResponseEntity<byte[]> exportExpesesToExcel(@RequestBody List<ExpenseDTO> expenses) {
 
-        byte[] excelFile = expenseService.exportExpensesToExcel(keycloakId, month);
+        byte[] excelFile = expenseService.exportExpensesToExcel(expenses);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=gasto_mes_"+ month + ".xlsx")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=gastos.xlsx")
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.seheet"))
                 .body(excelFile);
     }

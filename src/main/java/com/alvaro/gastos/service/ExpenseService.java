@@ -4,6 +4,8 @@ import com.alvaro.gastos.dto.ApiResponse;
 import com.alvaro.gastos.dto.ExpenseDTO;
 import com.alvaro.gastos.response.ExpenseResponse;
 
+import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 public interface ExpenseService {
@@ -22,7 +24,8 @@ public interface ExpenseService {
 
     ApiResponse<ExpenseResponse> getExpensesByKeycloakId(String keycloakId);
     ApiResponse<ExpenseResponse> getExpensesByUserAndMonth(String keycloakId, int month);
+    ApiResponse<ExpenseResponse> getExpensesByUserAndDateRange(String keycloakId, LocalDate startDate, LocalDate endDate);
 
-    byte[] exportExpensesToExcel(String keycloakId, int month);
+    byte[] exportExpensesToExcel(List<ExpenseDTO> expenses);
 
 }
