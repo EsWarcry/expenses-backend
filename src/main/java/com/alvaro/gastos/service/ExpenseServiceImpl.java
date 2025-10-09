@@ -10,6 +10,7 @@ import com.alvaro.gastos.repository.ExpenseTypeRepository;
 import com.alvaro.gastos.repository.UserRepository;
 import com.alvaro.gastos.response.ExpenseResponse;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -281,15 +283,12 @@ public class ExpenseServiceImpl implements ExpenseService{
         return expenseDTO;
     }
 
-    public byte[] exportExpensesToExcel(List<ExpenseDTO> expenses){
-
-        //List<Expense> expenses = expenseRepository.findByUserAndMonth(keycloakId, month);
+    public byte[] exportExpensesToExcel(List<ExpenseDTO> expenses) {
 
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Gastos");
 
-            // ========= EStilos =========
-
+            // ========= Estilos =========
             Font boldFont = workbook.createFont();
             boldFont.setBold(true);
 
@@ -299,30 +298,72 @@ public class ExpenseServiceImpl implements ExpenseService{
             CellStyle totalStyle = workbook.createCellStyle();
             totalStyle.setFont(boldFont);
 
-            //Estiloo para fechas
-
+            // Estilo para fechas
             CreationHelper createHelper = workbook.getCreationHelper();
             CellStyle dateStyle = workbook.createCellStyle();
             dateStyle.setDataFormat(createHelper.createDataFormat().getFormat("dd/MM/yyyy"));
 
-            // Encabezado
+            // ======== Título dinámico =========
 
-            Row header = sheet.createRow(0);
+            String title = "Gastos registrados";
+            if (!expenses.isEmpty()) {
+                LocalDate minDate = expenses.stream()
+                        .map(ExpenseDTO::getExpenseDate)
+                        .filter(Objects::nonNull)
+                        .min(LocalDate::compareTo)
+                        .orElse(null);
+
+                LocalDate maxDate = expenses.stream()
+                        .map(ExpenseDTO::getExpenseDate)
+                        .filter(Objects::nonNull)
+                        .max(LocalDate::compareTo)
+                        .orElse(null);
+
+                if (minDate != null && maxDate != null) {
+                    if (minDate.equals(maxDate)) {
+                        title = "Gastos del " + minDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                    } else {
+                        title = "Gastos del " + minDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                                + " al " + maxDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                    }
+                }
+            }
+
+            // Crear fila de título (fila 0)
+            Row titleRow = sheet.createRow(0);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue(title);
+
+            // Estilo del título
+            Font titleFont = workbook.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 14);
+            CellStyle titleStyle = workbook.createCellStyle();
+            titleStyle.setFont(titleFont);
+            titleStyle.setAlignment(HorizontalAlignment.CENTER);
+            titleCell.setCellStyle(titleStyle);
+
+            // Combinar celdas para centrar título (de columna 0 a 4)
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 4));
+
+            // ===== Encabezado =====
+            int headerRowIndex = 2; // Fila después del título
+            Row header = sheet.createRow(headerRowIndex);
             String[] columns = {"Tipo de Gasto", "Fecha", "Monto €", "KM", "Descripción"};
-            for (int i=0; i < columns.length; i++){
+
+            for (int i = 0; i < columns.length; i++) {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(columns[i]);
                 cell.setCellStyle(headerStyle);
             }
 
-            //===== Filas
-
-            int rowNum = 1;
-            for (ExpenseDTO exp : expenses){
+            // ===== Filas =====
+            int rowNum = headerRowIndex + 1;
+            for (ExpenseDTO exp : expenses) {
                 Row row = sheet.createRow(rowNum++);
                 row.createCell(0).setCellValue(exp.getExpenseTypeName());
 
-                //Damos formato a la fecha
+                // Fecha con formato
                 Cell dateCell = row.createCell(1);
                 if (exp.getExpenseDate() != null) {
                     LocalDate date = exp.getExpenseDate();
@@ -335,25 +376,27 @@ public class ExpenseServiceImpl implements ExpenseService{
                 row.createCell(4).setCellValue(exp.getDescription() != null ? exp.getDescription() : "");
             }
 
+            // ===== Total =====
             Double total = expenses.stream().mapToDouble(ExpenseDTO::getAmount).sum();
-
             Row rowTotal = sheet.createRow(rowNum + 1);
             rowTotal.createCell(1).setCellValue("Total €:");
             Cell totalCell = rowTotal.createCell(2);
             totalCell.setCellValue(total);
             totalCell.setCellStyle(totalStyle);
 
-            // ==== Ajustar el ancho de las celldas
-
-            for (int i = 0; i< columns.length; i++){
+            // ==== Ajustar el ancho de las celdas ====
+            for (int i = 0; i < columns.length; i++) {
                 sheet.autoSizeColumn(i);
             }
 
+            // ==== Generar archivo ====
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
             return out.toByteArray();
-        }catch (IOException e){
+
+        } catch (IOException e) {
             throw new RuntimeException("Error generando Excel de gastos");
         }
     }
+
 }
