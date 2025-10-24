@@ -34,4 +34,6 @@ public class UserDTO {
 
     @Size(max = 20, message = "El teléfono no puede exceder los 20 caracteres")
     private String phone; // Teléfono
+
+    private String role;
 }

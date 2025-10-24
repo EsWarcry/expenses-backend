@@ -44,6 +44,10 @@ public class UserServiceImpl implements UserService{
             String tempPassword = generateRandomPassword();
             keycloakUserService.setTemporaryPassword(keycloakId, tempPassword);
 
+            if (userDTO.getRole() != null && !userDTO.getRole().isEmpty()){
+                keycloakUserService.assignRoleToUser(keycloakId, userDTO.getRole());
+            }
+
             User user = new User();
             user.setKeycloakId(keycloakId);
             user.setUsername(userDTO.getUsername());
@@ -51,10 +55,12 @@ public class UserServiceImpl implements UserService{
             user.setFirstName(userDTO.getFirstName());
             user.setLastName(userDTO.getLastName());
             user.setPhone(userDTO.getPhone());
+            user.setRole(userDTO.getRole());
 
             User saveUser = userRepository.save(user);
             logger.info("Usuario registrado y guardado en la BD con ID: {}", saveUser.getId());
 
+            //enviamos la contraseña temporal por correo electronico.
             emailService.sendTemporaryPassword(user.getEmail(), user.getUsername(), tempPassword);
 
             UserDTO responseDTO = new UserDTO();
@@ -65,6 +71,7 @@ public class UserServiceImpl implements UserService{
             responseDTO.setFirstName(saveUser.getFirstName());
             responseDTO.setLastName(saveUser.getLastName());
             responseDTO.setPhone(saveUser.getPhone());
+            responseDTO.setRole(saveUser.getRole());
             return new  ApiResponse<>("Usuario registrado exitosamente.", responseDTO);
 
         } catch (Exception e){

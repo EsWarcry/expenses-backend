@@ -3,19 +3,16 @@ package com.alvaro.gastos.controller;
 import com.alvaro.gastos.dto.ApiResponse;
 import com.alvaro.gastos.dto.RequestContext;
 import com.alvaro.gastos.dto.UserDTO;
+import com.alvaro.gastos.service.KeycloakUserService;
 import com.alvaro.gastos.service.UserService;
 import jakarta.validation.Valid;
-import jakarta.websocket.server.PathParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -26,10 +23,14 @@ public class UserController {
 
     private final UserService userService;
 
+    private KeycloakUserService keycloakUserService;
+
     // Inyección de dependencia del UserService a través del constructor
-    public UserController(UserService userService) {
+    public UserController(UserService userService, KeycloakUserService keycloakUserService) {
         this.userService = userService;
+        this.keycloakUserService = keycloakUserService;
     }
+
 
     /**
      * Endpoint para registrar un nuevo usuario.
@@ -75,15 +76,6 @@ public class UserController {
             RequestContext.clear();
         }
 
-
-        /*if ("success".equals(response.getStatus())){
-            return new ResponseEntity<>(response, HttpStatus.OK);
-        } else {
-            if (response.getMessage().contains("ya está en uso")){
-                return new ResponseEntity<>(response, HttpStatus.CONFLICT);
-            }
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }*/
     }
 
     @ModelAttribute
@@ -146,15 +138,9 @@ public class UserController {
         }
     }
 
-    /*private ResponseEntity<?> validation(BindingResult result){
-        Map<String, String> errors = new HashMap<>();
-        result.getFieldErrors().forEach(err -> {
-            errors.put(err.getField(), err.getDefaultMessage());
-        });
-        return ResponseEntity.badRequest().body(errors);
-    }*/
-
-
-
+    @GetMapping("/users/keycloak/roles")
+   public ResponseEntity<List<String>> getRoles(){
+        return ResponseEntity.ok(keycloakUserService.getAllRoles());
+   }
 
 }

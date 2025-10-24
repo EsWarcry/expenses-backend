@@ -5,14 +5,18 @@ import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
+import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -73,6 +77,19 @@ public class KeycloakUserService {
         userResource.update(user);
 
         logger.info("Contraseña temporal asignada y requieredAction para usuario {}", keycloakId);
+    }
+
+    public List<String> getAllRoles(){
+        RealmResource real = keycloak.realm(realm);
+        return real.roles().list().stream()
+                .map(RoleRepresentation::getName)
+                .collect(Collectors.toList());
+    }
+
+    public void assignRoleToUser(String keycloakId, String roleName){
+        RealmResource real = keycloak.realm(realm);
+        RoleRepresentation role = real.roles().get(roleName).toRepresentation();
+        real.users().get(keycloakId).roles().realmLevel().add(Collections.singletonList(role));
     }
 }
 
